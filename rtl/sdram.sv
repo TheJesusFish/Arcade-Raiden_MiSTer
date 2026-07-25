@@ -126,12 +126,15 @@ always @(posedge clk) begin
 	reg rfs, rfs2;
 	
 	rfs_cnt <= rfs_cnt + 1'd1;
-	if (rfs_cnt == 850) begin
+	// Refresh: 8192 righe entro 64ms @80MHz(12.5ns) -> serve <=625 cicli/refresh.
+	// Era 850 (=10.6us -> 87ms per 8192 righe > 64ms retention -> decay board-dependent).
+	// 500 = 6.25us -> 51ms per 8192 righe, ~20% margine (anche per chip caldi/marginali).
+	if (rfs_cnt == 500) begin
 		rfs <= 1;
 		rfs_cnt <= 0;
 	end
 
-	if (rfs_cnt == 425) rfs2 <= 1;
+	if (rfs_cnt == 250) rfs2 <= 1;
 	
 	if(state == STATE_IDLE && mode == MODE_NORMAL) begin
 		if (rfs) begin

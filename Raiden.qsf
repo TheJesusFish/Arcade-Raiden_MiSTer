@@ -9,11 +9,9 @@
 # --------------------------------------------------------------------------
 
 set_global_assignment -name TOP_LEVEL_ENTITY sys_top
-# DISABILITATA preservazione db (2026-07-19): ogni build rifa placement+routing da ZERO,
-# nessun riuso del database -> niente regressioni mascherate. Build sempre onesta/riproducibile.
-# set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
-# set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
-# set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 
 set_global_assignment -name LAST_QUARTUS_VERSION "17.0.0 Lite Edition"
 
@@ -21,7 +19,7 @@ set_global_assignment -name GENERATE_RBF_FILE ON
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
 set_global_assignment -name SAVE_DISK_SPACE OFF
-set_global_assignment -name SMART_RECOMPILE OFF
+set_global_assignment -name SMART_RECOMPILE ON
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP "-40"
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 100
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
@@ -290,7 +288,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/Raiden/pause_overlay.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/Raiden/pause_text.sv
 # Analog H-Size: comprime l'immagine analogica (read rate) senza toccare sync/pixel
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/Raiden/analog_hsize.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/Raiden/Raiden_debug_overlay.sv
 set_global_assignment -name VERILOG_FILE rtl/jtframe/jtframe_68kdtack_cen.v
 set_global_assignment -name VERILOG_FILE rtl/jtframe/jtframe_freqinfo.v
 set_global_assignment -name VERILOG_FILE rtl/jtframe/jtframe_bcd_cnt.v

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Original: Martin Donlon (wickerwaka) — Arcade-TaitoF2 savestate. Modified by Umberto Parisi.
+// Original: Martin Donlon (wickerwaka) - Arcade-TaitoF2 savestate. Modified by Umberto Parisi.
 //
-/*  This file is part of BoogieWings_MiSTer.
+/*  This file is part of Raiden_MiSTer.
     GPL-3.
     Original author: Martin Donlon (wickerwaka) — Arcade-TaitoF2 savestate system.
     Modified/adapted for BoogieWings by: Umberto Parisi (rmonc79)

@@ -11,11 +11,11 @@ audio driven through the Seibu SEI80BU.
 This core reimplements the hardware in SystemVerilog/VHDL from MAME
 references and hardware observation.
 
-> **For now this repository holds only the GPL-covered material — the
-> source code.** The bitstream (`.rbf`) and the `.mra` files will be
-> released once the author considers them complete. In the meantime you
-> can build the core yourself with Quartus (see *Building from source*)
-> and supply or create the MRA for your ROM set.
+> **This repository holds only the GPL-covered material — the source code.**
+> No bitstream (`.rbf`) or `.mra` is included here. While the core is in
+> testing, compiled builds are distributed separately; a final public release
+> will follow. You can also build the core yourself with Quartus (see
+> *Building from source*) and supply or create the MRA for your ROM set.
 
 ## About the game
 
@@ -24,23 +24,26 @@ Supersonic Attack Fighter against an alien invasion, alternating between a
 spread vulcan cannon and a homing laser while dodging dense enemy fire. Its
 solid feel, the trademark bending "Toothpaste" laser and the two-player
 co-op made it a coin-op landmark and the start of a long series. The board
-runs the game on twin NEC V30 CPUs — one driving the game, one driving the
-video compositor.
+runs the game on twin NEC V30 CPUs — a main CPU for game logic and a sub CPU
+for video and background work.
 
 ## Status
 
-**Current version: 0.8** (July 2026).
+**Current version: 0.9 — testing / pre-release** (July 2026).
 
-The core runs the game end-to-end. Expect rough edges while it is still
-being finalized.
+This is a **pre-release build meant for testing**: the core runs the game
+end-to-end and is being validated before a final release. Expect rough edges
+and please report anything you find.
 
-**Work in progress:**
-- Score display glitch: the in-game score intermittently shows two extra
-  trailing digits (looks like score ×100). The value stored in RAM is
-  always correct — this is a display-only glitch, still under investigation.
-- Savestate: the sub work RAM is now saved via a dedicated dual-port
-  (fresh-build safe). Background layer position right after a state load
-  still needs polishing.
+**Recent work:**
+- Score display glitch (score shown as ×100, two extra trailing digits):
+  root-caused to a **timing** issue — a setup violation on the V30 ALU
+  datapath that had been masked by an incorrect SDC multicycle. Addressed in
+  this build (the ALU is given a real two-cycle window and the constraint is
+  corrected); under testing to confirm it is gone. The value stored in RAM was
+  always correct.
+- Savestate: the sub work RAM is saved via a dedicated dual-port (fresh-build
+  safe); background layer position right after a state load still being polished.
 - Audio and accuracy polish.
 
 **Features**
@@ -53,7 +56,8 @@ being finalized.
 - Tile ROM streaming through SDRAM; sprite ROM and ADPCM ROM backed by DDR3
 - TATE / vertical rotation support for the analog output
 - VBlank-synchronized pause (frame-aligned, no race conditions)
-- **Analog VGA H-Shift / V-Shift** OSD options for fine alignment on CRTs
+- **CRT H-Size / H-Position** and **Analog VGA H-Shift / V-Shift** OSD options
+  for fine alignment on CRTs
 - MiSTer OSD with video and DIP options
 - Pause overlay with logo + supporters scroll
 - Savestate (save/restore) infrastructure

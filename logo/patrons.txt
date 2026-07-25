@@ -22,7 +22,9 @@ SILVER
 2:TONTON KALOUN - TETRA
 2:TAIKI HOSODA - FDA
 2:CARLOS LOBATO - SPINNER
-2:DAZZER69 - BATTY
+2:DAZZER69 - BATTY - DRI374
+2:JSWAN - ANTHONY - MICHAEL
+2:SOUZA - OISINMCG
 ------------------------------
 BRONZE
 ------------------------------
@@ -35,7 +37,8 @@ BRONZE
 1:RICHARD THOMPSON - YURI
 1:MICHAEL TURNER - JKLAX
 1:GIOVANNI BRULLO - DAN DOYLE
-1:Valiarn
+1:Valiarn - Bonna79 - SHOGUN7
+1:RONALVEL - HECTOR DIAZ
 ------------------------------
 HONORABLE MENTION KO-FI
 ------------------------------

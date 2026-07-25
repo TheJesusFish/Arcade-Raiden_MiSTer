@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/*  This file is part of GundamSD_MiSTer.
+/*  This file is part of Raiden_MiSTer.
 
-    GundamSD_MiSTer is free software: you can redistribute it and/or modify
+    Raiden_MiSTer is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    GundamSD_MiSTer is distributed in the hope that it will be useful,
+    Raiden_MiSTer is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with GundamSD_MiSTer.  If not, see <http://www.gnu.org/licenses/>.
+    along with Raiden_MiSTer.  If not, see <http://www.gnu.org/licenses/>.
 
     Author: Umberto Parisi (rmonic79)
     Version: 1.0
@@ -21,10 +21,10 @@
 */
 
 // pause_overlay.sv — overlay pausa (256x240, RGB 8-bit).
-// Modulo standalone, layout identico a ChinaGate.
+// Modulo standalone (overlay pausa Raiden).
 //
 // Coord raster: render_x 9-bit (0..511), render_y 9-bit (0..511).
-//               Visibile assunto come ChinaGate: 4..255 H × 8..246 V (256x240).
+//               Frame Raiden nativo: 4..255 H × 8..246 V (256x240).
 //
 // Layout:
 //   - Logo 48x48 sorgente, scale 2x = 96x96 sullo schermo, centrato
@@ -85,8 +85,6 @@ wire overlay_on = pause & ~clean;
 // CW  90°: new_x = (H-1) - y, new_y = x   (con H=224)
 wire [8:0] x_ccw = render_y_in;
 wire [8:0] y_ccw = 9'd255 - render_x_in;
-wire [8:0] x_cw  = 9'd223 - render_y_in;
-wire [8:0] y_cw  = render_x_in;
 
 // Test HW v83: rotate_en=0 OK (CCW), rotate_en=1 produce testa-in-giù.
 // → HPS ruota direzione opposta a quella ipotizzata. Devo applicare CCW
@@ -107,8 +105,8 @@ wire vblank_pulse = vblank & ~vblank_d;
 // Centro X = (4+255)/2 = 129, top-left X = 129-48 = 81
 // Centro Y = (8+246)/2 = 127, top-left Y = 127-48 = 79
 // =====================================================================
-// GundamSD: render_x 0..319, render_y 0..223. Logo 96x96 centrato.
-localparam [8:0] LOGO_X    = 9'd112;  // (320-96)/2 = 112
+// Frame reale Raiden (dopo pre-rotazione TATE, 224 largo). Logo 96x96 centrato (LOGO_X=64).
+localparam [8:0] LOGO_X    = 9'd64;   // (224-96)/2 = 64 (frame reale Raiden 224 largo, non 320)
 localparam [8:0] LOGO_Y    = 9'd64;   // (224-96)/2 = 64
 localparam [8:0] LOGO_XEND = LOGO_X + 9'd96;
 localparam [8:0] LOGO_YEND = LOGO_Y + 9'd96;
@@ -162,7 +160,7 @@ pause_text #(
 	.W_CHARS      (10),
 	.H_CHARS      (1),
 	.MSG_ROWS     (1),
-	.ORIGIN_X     (10'd120),   // (320-80)/2 = 120
+	.ORIGIN_X     (10'd72),    // (224-80)/2 = 72 (frame reale 224)
 	.ORIGIN_Y     (9'd16),     // top + 16 px margine
 	.SCROLL_EN    (0),
 	.FONT_FILE    ("logo/font_darius.hex"),
@@ -189,7 +187,7 @@ pause_text #(
 	.W_CHARS       (30),
 	.H_CHARS       (24),
 	.MSG_ROWS      (72),
-	.ORIGIN_X      (10'd40),    // (320-240)/2 = 40
+	.ORIGIN_X      (10'd0),     // frame reale 224: patron e' 240px (>224), ORIGIN_X=0 = padding sx minimo
 	.ORIGIN_Y      (9'd32),     // sotto header
 	.SCROLL_EN     (1),
 	.SCROLL_PERIOD (3),

@@ -1,5 +1,5 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
--- NEC V30 CPU core - from Arcade-RType_MiSTer (Martin Donlon / wickerwaka), modified there; original WonderSwan V30 by Robert Peip. GPL v3.
+-- NEC V30 CPU core - from Arcade-RType_MiSTer (Martin Donlon / wickerwaka), modified there; original WonderSwan V30 by Robert Peip (FPGAzumSpass). GPL v3.
 --
 library IEEE;
 use IEEE.std_logic_1164.all;  

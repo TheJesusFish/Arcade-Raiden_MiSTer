@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Original: Martin Donlon (wickerwaka) — Arcade-TaitoF2 (video_path). Modified by Umberto Parisi.
+// Original: Martin Donlon (wickerwaka) - Arcade-TaitoF2 (video_path). Modified by Umberto Parisi.
 //
 // raiden_rotate_fifo.sv
 // FIFO che cattura write da screen_rotate (CLK_VIDEO) e li drena nel bus DDRAM

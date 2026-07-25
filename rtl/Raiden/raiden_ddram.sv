@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Original: Sorgelig — MiSTer NeoGeo (ddram). Modified by Umberto Parisi.
+// Original: Sorgelig - MiSTer NeoGeo (ddram). Modified by Umberto Parisi.
 //
 // raiden_ddram.sv
 // DDR3 backend per Raiden — solo 1 write port (sprite upload) + 1 read port 32-bit (sprite fetch).

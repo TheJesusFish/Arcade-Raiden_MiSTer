@@ -1,5 +1,5 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
--- NEC V30 CPU core - from Arcade-RType_MiSTer (Martin Donlon / wickerwaka), modified there; original WonderSwan V30 by Robert Peip. GPL v3.
+-- NEC V30 CPU core - from Arcade-RType_MiSTer (Martin Donlon / wickerwaka), modified there; original WonderSwan V30 by Robert Peip (FPGAzumSpass). GPL v3.
 --
 library IEEE;
 use IEEE.std_logic_1164.all;
@@ -404,6 +404,7 @@ architecture arch of cpu is
    signal cpu_finished     : std_logic := '0';
    signal opstep           : integer range 0 to 7;
    signal waitexe          : std_logic;
+   signal exeArmed         : std_logic;   -- ciclo-bolla EXECUTE: 0=bolla, 1=compute (multicycle 2 ALU)
    signal pushFirst        : std_logic;
    signal popFirst         : std_logic;
    signal popUnalnByte     : std_logic_vector(7 downto 0);
@@ -547,9 +548,11 @@ begin
       variable bcdResultLow      : unsigned(4 downto 0);
       variable bcdResultHigh     : unsigned(4 downto 0);
       variable wordAligned       : std_logic;
+      variable busIssue          : std_logic;
    begin
       if rising_edge(clk) then
-         
+
+         busIssue         := '0';
          DIVstart         <= '0';
          cpu_done         <= '0';
          
@@ -638,7 +641,15 @@ begin
             if (ce = '1' and irqrequest_in = '1' and irqBlocked = '0' and cpustage = CPUSTAGE_IDLE) then
                halt <= '0';
             end if;
-                     
+
+            -- ciclo-bolla EXECUTE: fuori da EXECUTE tieni exeArmed=0, cosi' il
+            -- primo ce_4x di ogni EXECUTE e' una bolla e il compute (read reg ->
+            -- ALU -> write reg) cade >=2 clk dopo la scrittura degli operandi.
+            -- Rende VERO il multicycle 2 dell'SDC sui ~22 ns dell'ALU.
+            if (cpustage /= CPUSTAGE_EXECUTE) then
+               exeArmed <= '0';
+            end if;
+
             if (ce = '1' and delay > 0) then
             
                delay <= delay - 1;
@@ -1507,17 +1518,15 @@ begin
                         else
                            cpustage        <= CPUSTAGE_CHECKDATAREADY;
                         end if;
-                        if (consumePrefetch = 1) then
-                           if (opsign = '1') then fetch1Val <= unsigned(resize(signed(prefetchBuffer(15 downto 8)), 16));
-                           else                   fetch1Val <= x"00" & unsigned(prefetchBuffer(15 downto 8)); end if;
-                        else
-                           if (opsign = '1') then fetch1Val <= unsigned(resize(signed(prefetchBuffer(7 downto 0)), 16));
-                           else                   fetch1Val <= x"00" & unsigned(prefetchBuffer(7 downto 0)); end if;
-                        end if;
+                        -- fix root-cause score bug: l'immediato va letto all'offset = consumePrefetch
+                        -- (0..3), non solo 0/1. C6/C7 con disp -> consumePrefetch=2/3 -> immediato a
+                        -- offset 2/3, non 0. Slice dinamica (pattern come riga ~3152).
+                        if (opsign = '1') then fetch1Val <= unsigned(resize(signed(prefetchBuffer((consumePrefetch*8)+7 downto (consumePrefetch*8))), 16));
+                        else                   fetch1Val <= x"00" & unsigned(prefetchBuffer((consumePrefetch*8)+7 downto (consumePrefetch*8))); end if;
                         regs.reg_ip     <= Regs.reg_ip + 1;
                         consumePrefetch <= 1;
                      end if;
-                     
+
                   when CPUSTAGE_FETCHDATA1_16 =>
                      if ((ce = '1' or instantFetch = '1') and (prefetchCount - consumePrefetch) > 1) then
                         fetchedSource1  <= '1';
@@ -1526,14 +1535,10 @@ begin
                         else
                            cpustage        <= CPUSTAGE_CHECKDATAREADY;
                         end if;
-                        if (consumePrefetch = 1) then
-                           fetch1Val       <= unsigned(prefetchBuffer(23 downto 8));
-                        else
-                           fetch1Val       <= unsigned(prefetchBuffer(15 downto 0));
-                        end if;
-                        regs.reg_ip     <= regs.reg_ip + 2; 
+                        fetch1Val <= unsigned(prefetchBuffer((consumePrefetch*8)+15 downto (consumePrefetch*8)));
+                        regs.reg_ip     <= regs.reg_ip + 2;
                         consumePrefetch <= 2;
-                        if (SLOWTIMING = '1') then delay <= 1; end if;                        
+                        if (SLOWTIMING = '1') then delay <= 1; end if;
                      end if;
                      
                   when CPUSTAGE_FETCHDATA2_8 =>
@@ -1544,13 +1549,9 @@ begin
                         else
                            cpustage        <= CPUSTAGE_CHECKDATAREADY;
                         end if;
-                        if (consumePrefetch = 1) then
-                           if (opsign = '1') then fetch2Val <= unsigned(resize(signed(prefetchBuffer(15 downto 8)), 16));
-                           else                   fetch2Val <= x"00" & unsigned(prefetchBuffer(15 downto 8)); end if;
-                        else
-                           if (opsign = '1') then fetch2Val <= unsigned(resize(signed(prefetchBuffer(7 downto 0)), 16));
-                           else                   fetch2Val <= x"00" & unsigned(prefetchBuffer(7 downto 0)); end if;
-                        end if;
+                        -- fix root-cause: immediato all'offset = consumePrefetch (vedi FETCHDATA1_8).
+                        if (opsign = '1') then fetch2Val <= unsigned(resize(signed(prefetchBuffer((consumePrefetch*8)+7 downto (consumePrefetch*8))), 16));
+                        else                   fetch2Val <= x"00" & unsigned(prefetchBuffer((consumePrefetch*8)+7 downto (consumePrefetch*8))); end if;
                         regs.reg_ip     <= Regs.reg_ip + 1;
                         consumePrefetch <= 1;
                      end if;
@@ -1563,14 +1564,10 @@ begin
                         else
                            cpustage        <= CPUSTAGE_CHECKDATAREADY;
                         end if;
-                        if (consumePrefetch = 1) then
-                           fetch2Val       <= unsigned(prefetchBuffer(23 downto 8));
-                        else
-                           fetch2Val       <= unsigned(prefetchBuffer(15 downto 0));
-                        end if;
-                        regs.reg_ip     <= regs.reg_ip + 2; 
+                        fetch2Val <= unsigned(prefetchBuffer((consumePrefetch*8)+15 downto (consumePrefetch*8)));
+                        regs.reg_ip     <= regs.reg_ip + 2;
                         consumePrefetch <= 2;
-                        if (SLOWTIMING = '1') then delay <= 1; end if;                     
+                        if (SLOWTIMING = '1') then delay <= 1; end if;
                      end if;
   
 -- ####################################################################################
@@ -1889,7 +1886,11 @@ begin
 -- ####################################################################################
                      
                   when CPUSTAGE_EXECUTE =>
-                  
+
+                     if (exeArmed = '0') then
+                        exeArmed <= '1';   -- ciclo-bolla: 1 ce_4x a vuoto, il compute cade >=2 clk dopo gli operandi
+                     else
+
                      source1Val := x"0000";
                      case (source1) is
                         when OPSOURCE_FETCHVALUE8  => source1Val := fetch1Val;
@@ -2021,7 +2022,7 @@ begin
                               -- v115 fix: usa result17 (17-bit) per evitare overflow op2value 16-bit quando ADC con source2=0xFFFF + carry=1.
                               -- Bug pre-fix: op2value := op2value+1 con op2value=0xFFFF wrappa a 0x0000, perdendo carry-out.
                               op2value := source2Val;
-                              if (aluop = ALU_OP_ADC and flagCarry = '1') then
+                              if (aluop = ALU_OP_ADC and regs.FlagCar = '1') then
                                  result17 := resize(source1Val, 17) + resize(source2Val, 17) + to_unsigned(1, 17);
                               else
                                  result17 := resize(source1Val, 17) + resize(source2Val, 17);
@@ -2033,7 +2034,7 @@ begin
                                  if (opsize = 1 and result17(8)  = '1') then regs.FlagCar <= '1'; end if;
                                  if (opsize = 2 and result17(16) = '1') then regs.FlagCar <= '1'; end if;
                               end if;
-                              if (aluop = ALU_OP_ADC and flagCarry = '1') then
+                              if (aluop = ALU_OP_ADC and regs.FlagCar = '1') then
                                  if (to_integer(source1Val(3 downto 0)) + to_integer(source2Val(3 downto 0)) + 1 >= 16) then regs.FlagHaC <= '1'; else regs.FlagHaC <= '0'; end if;
                               else
                                  if (to_integer(source1Val(3 downto 0)) + to_integer(source2Val(3 downto 0))     >= 16) then regs.FlagHaC <= '1'; else regs.FlagHaC <= '0'; end if;
@@ -2048,7 +2049,7 @@ begin
                               -- v115 fix: usa result17 (17-bit) per evitare overflow op2value 16-bit quando SBB con source2=0xFFFF + carry=1.
                               -- Bug pre-fix: op2value := op2value+1 con op2value=0xFFFF wrappa a 0x0000, perdendo borrow-out.
                               op2value := source2Val;
-                              if (aluop = ALU_OP_SBB and flagCarry = '1') then
+                              if (aluop = ALU_OP_SBB and regs.FlagCar = '1') then
                                  result17 := resize(source1Val, 17) - resize(source2Val, 17) - to_unsigned(1, 17);
                               else
                                  result17 := resize(source1Val, 17) - resize(source2Val, 17);
@@ -2056,13 +2057,13 @@ begin
                               newZero := '1'; newParity := '1'; newSign := '1';
                               result  := result17(15 downto 0);
                               if (aluop /= ALU_OP_DEC) then
-                                 if (aluop = ALU_OP_SBB and flagCarry = '1') then
+                                 if (aluop = ALU_OP_SBB and regs.FlagCar = '1') then
                                     if (to_integer(source2Val) + 1 > to_integer(source1Val)) then regs.FlagCar <= '1'; else regs.FlagCar <= '0'; end if;
                                  else
                                     if (source2Val > source1Val) then regs.FlagCar <= '1'; else regs.FlagCar <= '0'; end if;
                                  end if;
                               end if;
-                              if (aluop = ALU_OP_SBB and flagCarry = '1') then
+                              if (aluop = ALU_OP_SBB and regs.FlagCar = '1') then
                                  if (to_integer(source2Val(3 downto 0)) + 1 > to_integer(source1Val(3 downto 0))) then regs.FlagHaC <= '1'; else regs.FlagHaC <= '0'; end if;
                               else
                                  if (source2Val(3 downto 0) > source1Val(3 downto 0)) then regs.FlagHaC <= '1'; else regs.FlagHaC <= '0'; end if;
@@ -2098,8 +2099,8 @@ begin
                                  regs.FlagOvf <= source1Val(15) xor result(15);
                               end if;
                            
-                           when ALU_OP_RCL => 
-                              carryWork1 := flagCarry;
+                           when ALU_OP_RCL =>
+                              carryWork1 := regs.FlagCar;   -- carry diretto (no snapshot ritardato) -> catena shl/rcl del div software robusta
                               result := source1Val;
                               for i in 0 to 31 loop
                                  if (i < source2Val(4 downto 0)) then
@@ -2120,7 +2121,7 @@ begin
                               end if;
                            
                            when ALU_OP_RCR =>
-                              carryWork1 := flagCarry;
+                              carryWork1 := regs.FlagCar;   -- carry diretto (no snapshot ritardato)
                               result := source1Val;
                               for i in 0 to 31 loop
                                  if (i < source2Val(4 downto 0)) then
@@ -2245,9 +2246,9 @@ begin
                                     result9 := result9 + 6;
                                  end if;
                                  regs.FlagHaC <= '1';
-                                 regs.FlagCar <= flagCarry or result9(8);
+                                 regs.FlagCar <= regs.FlagCar or result9(8);
                               end if;
-                              if (flagCarry = '1' or regs.reg_ax(7 downto 0) > x"99") then
+                              if (regs.FlagCar = '1' or regs.reg_ax(7 downto 0) > x"99") then
                                  if (adjustNegate = '1') then 
                                     result9 := result9 - 16#60#;
                                  else
@@ -2354,7 +2355,8 @@ begin
                                  if (prefixSegmentDS = '1') then varmemSegment := regs.reg_ds; end if;
                                  bus_read          <= '0';
                                  bus_write         <= '1';
-                        
+                                 busIssue          := '1';
+
                                  if (memFirst = '0') then
                                     bus_addr         <= resize(varmemSegment * 16 + memAddr + 1, 20);
                                     bus_datawrite    <= x"00" & std_logic_vector(resultval(15 downto 8));
@@ -2380,6 +2382,7 @@ begin
                                        memFetchValue1 <= memFetchValue2;
                                        opcode         <= opcodeNext;
                                        opcodeNext     <= OP_INVALID;
+                                       exeArmed       <= '0';   -- chain: bolla anche per l'op concatenato
                                     else
                                        exeDone      := '1';
                                     end if;
@@ -2429,6 +2432,7 @@ begin
                                  memFetchValue1 <= memFetchValue2;
                                  opcode         <= opcodeNext;
                                  opcodeNext     <= OP_INVALID;
+                                 exeArmed       <= '0';   -- chain: bolla anche per l'op concatenato
                               end if;
                            else
                               exeDone   := '1';
@@ -2473,6 +2477,7 @@ begin
                                           source1        <= source2;
                                           opcode         <= opcodeNext;
                                           opcodeNext     <= OP_INVALID;
+                                          exeArmed       <= '0';   -- chain: bolla anche per l'op concatenato
                                           opstep         <= 0;
                                        end if;
                                     else
@@ -2493,6 +2498,7 @@ begin
                                        source1        <= source2;
                                        opcode         <= opcodeNext;
                                        opcodeNext     <= OP_INVALID;
+                                       exeArmed       <= '0';   -- chain: bolla anche per l'op concatenato
                                        opstep         <= 0;
                                     end if;
                                  else
@@ -2606,6 +2612,7 @@ begin
                                           waitexe   <= '1';
                                           bus_read          <= '0';
                                           bus_write         <= '1';
+                                          busIssue          := '1';
                                           bus_be            <= "01";
                                           bus_datawrite    <= x"00" & std_logic_vector(bcdAcc);
                                           bus_addr         <= resize(regs.reg_es * 16 + regs.reg_di + bcdOffset, 20);
@@ -2683,6 +2690,7 @@ begin
                                        if (opcodeNext /= OP_INVALID) then
                                           opcode     <= opcodeNext;
                                           opcodeNext <= OP_INVALID;
+                                          exeArmed   <= '0';   -- chain: bolla anche per l'op concatenato
                                           memFirst   <= '1';
                                        else
                                           exeDone := '1';
@@ -2802,6 +2810,7 @@ begin
                                  
                                  bus_read          <= '0';
                                  bus_write         <= '1';
+                                 busIssue          := '1';
                                  bus_be            <= "01";
                                  if (wordAligned = '1') then
                                     bus_datawrite    <= std_logic_vector(resultval(15 downto 0));
@@ -2991,10 +3000,17 @@ begin
                            elsif (ce = '1') then
                               exeDone := '1';
                               if (memFetchValue2 = 0) then
+                                 regs.FlagCar <= '0'; regs.FlagOvf <= '0';   -- div_quirk V30: div/0 -> CF=OF=0
+                                 irqrequest <= '1';
+                                 irqvector  <= (others => '0');
+                              elsif ((opsize = 1 and DIVquotient(32 downto 8)  /= 0) or
+                                     (opsize = 2 and DIVquotient(32 downto 16) /= 0)) then
+                                 regs.FlagCar <= '0'; regs.FlagOvf <= '0';   -- overflow: CF=OF=0, trap, registri INVARIATI
                                  irqrequest <= '1';
                                  irqvector  <= (others => '0');
                               else
-                                  if (opsize = 1) then
+                                 regs.FlagCar <= '1'; regs.FlagOvf <= '1';   -- div_quirk V30: successo -> CF=OF=1
+                                 if (opsize = 1) then
                                     regs.reg_ax <= unsigned(DIVremainder(7 downto 0)) & unsigned(DIVquotient(7 downto 0));
                                  else
                                     regs.reg_ax <= unsigned(DIVquotient(15 downto 0));
@@ -3018,10 +3034,17 @@ begin
                            elsif (ce = '1') then
                               exeDone := '1';
                               if (memFetchValue2 = 0) then
+                                 regs.FlagCar <= '0'; regs.FlagOvf <= '0';   -- div_quirk V30: div/0 -> CF=OF=0
+                                 irqrequest <= '1';
+                                 irqvector  <= (others => '0');
+                              elsif ((opsize = 1 and (DIVquotient > 127   or DIVquotient < -127)) or
+                                     (opsize = 2 and (DIVquotient > 32767 or DIVquotient < -32767))) then
+                                 regs.FlagCar <= '0'; regs.FlagOvf <= '0';   -- overflow signed: CF=OF=0, trap, reg INVARIATI
                                  irqrequest <= '1';
                                  irqvector  <= (others => '0');
                               else
-                                  if (opsize = 1) then
+                                 regs.FlagCar <= '1'; regs.FlagOvf <= '1';   -- div_quirk V30: successo -> CF=OF=1
+                                 if (opsize = 1) then
                                     regs.reg_ax <= unsigned(DIVremainder(7 downto 0)) & unsigned(DIVquotient(7 downto 0));
                                  else
                                     regs.reg_ax <= unsigned(DIVquotient(15 downto 0));
@@ -3029,7 +3052,7 @@ begin
                                  end if;
                               end if;
                            end if;
-
+                           
                         when OP_MULADJUST =>
                            if (opstep = 0 and ce = '1') then
                               delay      <= 10;
@@ -3093,7 +3116,9 @@ begin
                            prefixSegmentDS <= '0';
                         end if;
                      end if;
-                  
+
+                     end if;   -- chiude ciclo-bolla exeArmed (CPUSTAGE_EXECUTE)
+
                   when others =>
                      null;
                
@@ -3114,7 +3139,7 @@ begin
                   end if;
                
                when PREFETCH_READ =>
-                  if (prefetchAllow = '1') then
+                  if (prefetchAllow = '1' and busIssue = '0') then
                      prefetchAddrOld <= prefetchAddr;
                      prefetchState <= PREFETCH_WAIT;
                      bus_addr <= prefetchAddr;

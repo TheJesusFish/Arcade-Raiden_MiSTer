@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Original: Martin Donlon (wickerwaka) — Arcade-TaitoF2 (ddram). Modified by Umberto Parisi.
+// Original: Martin Donlon (wickerwaka) - Arcade-TaitoF2 (ddram). Modified by Umberto Parisi.
 //
 // raiden_ddr_if.sv
 // Bus DDRAM condiviso multi-client. Copia esatta del pattern taito_f2_baseline/rtl/ddram.sv.

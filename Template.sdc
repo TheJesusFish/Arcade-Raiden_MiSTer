@@ -16,17 +16,19 @@ set_multicycle_path -setup -from [get_registers {*Raiden_audio_z80*}] -to [get_r
 set_multicycle_path -hold  -from [get_registers {*Raiden_audio_z80*}] -to [get_registers {*Raiden_audio_z80*}] 23
 
 # ============================================================
-# Raiden V30 CPUs (Main + Sub) running at 10 MHz on clk_sys 96 MHz
-# CE generator emits 5/48 → media 9.6 cicli clk_sys tra due CE attivi
-# Path interni cpu.vhd (memFetchValue/ALU/regs/Flag*) sono CE-gated
-# Multicycle 9 setup / 8 hold (conservativo)
-# Path verso esterno (main_top RAM/ROM I/O) NON multicycle-ati: bus_*
-# è già gestito dal mux registrato del main_top.
+# Raiden V30 CPUs (Main + Sub): multicycle 2 setup / 1 hold — VERO.
+# ce_4x (raiden_ce_gen.sv) ora scatta ogni 2 clk_sys (40 MHz): i registri interni
+# del V30 (microcode FSM, ALU, flag, prefetch) si aggiornano al più ogni 2 clk.
+# Quindi ogni path register-to-register interno ha ESATTAMENTE 2 clk per assestarsi
+# → multicycle 2 è fisicamente vero (non una bugia come il vecchio 9/8, che assumeva
+# ce ogni 9.6 clk mentre ce_4x girava ogni clk → path ALU ~24 ns certificati verdi
+# ma in violazione). Con 2 clk = 25 ns i ~24 ns dell'ALU chiudono il setup.
+# I cycle-count istruzione NON cambiano (delay ce-paced, 10 MHz, cpu.vhd:644).
 # ============================================================
-set_multicycle_path -setup -from [get_registers {*Raiden_main_top*u_cpu*cpu*}] -to [get_registers {*Raiden_main_top*u_cpu*cpu*}] 9
-set_multicycle_path -hold  -from [get_registers {*Raiden_main_top*u_cpu*cpu*}] -to [get_registers {*Raiden_main_top*u_cpu*cpu*}] 8
-set_multicycle_path -setup -from [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  -to [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  9
-set_multicycle_path -hold  -from [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  -to [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  8
+set_multicycle_path -setup -from [get_registers {*Raiden_main_top*u_cpu*cpu*}] -to [get_registers {*Raiden_main_top*u_cpu*cpu*}] 2
+set_multicycle_path -hold  -from [get_registers {*Raiden_main_top*u_cpu*cpu*}] -to [get_registers {*Raiden_main_top*u_cpu*cpu*}] 1
+set_multicycle_path -setup -from [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  -to [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  2
+set_multicycle_path -hold  -from [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  -to [get_registers {*Raiden_sub_top*u_cpu*cpu*}]  1
 
 # ============================================================
 # Video timing → palette RAM address.

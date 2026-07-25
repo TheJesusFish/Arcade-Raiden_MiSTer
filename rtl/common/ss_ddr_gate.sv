@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) Umberto Parisi (rmonic79). GPL v3 or later.
 //
-/*  This file is part of BoogieWings_MiSTer.
+/*  This file is part of Raiden_MiSTer.
     GPL-3.
     Author: Umberto Parisi (rmonc79)
 */
