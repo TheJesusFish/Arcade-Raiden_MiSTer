@@ -20,6 +20,7 @@ module Raiden_sub_top #(
 	input  wire        clk,
 	input  wire        reset,
 	input  wire        pause,
+	output wire        cpu_idle,        // 1 = V30 a confine istruzione (savestate boundary)
 	input  wire  [2:0] clk_sel,         // legacy, ignorato
 	// SDRAM Sub ROM bridge
 	input  wire [15:0] sub_rom_rdata,
@@ -162,7 +163,7 @@ cpu_v30_bridge #(.SS_IDX(SS_IDX_CPU)) u_cpu (
 	.bus_din       (cpu_din),
 	.irq_req       (irq_pending),
 	.irq_vector    (10'h0C8),
-	.cpu_idle      (),
+	.cpu_idle      (cpu_idle),
 	.cpu_halt      (),
 	.cpu_irqrequest(cpu_irq_active),
 	.cpu_prefix    (),

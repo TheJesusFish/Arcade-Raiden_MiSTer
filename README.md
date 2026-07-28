@@ -11,12 +11,6 @@ audio driven through the Seibu SEI80BU.
 This core reimplements the hardware in SystemVerilog/VHDL from MAME
 references and hardware observation.
 
-> **This repository holds only the GPL-covered material — the source code.**
-> No bitstream (`.rbf`) or `.mra` is included here. While the core is in
-> testing, compiled builds are distributed separately; a final public release
-> will follow. You can also build the core yourself with Quartus (see
-> *Building from source*) and supply or create the MRA for your ROM set.
-
 ## About the game
 
 **Raiden** is a vertically scrolling shoot-'em-up: you fly the Raiden
@@ -29,21 +23,24 @@ for video and background work.
 
 ## Status
 
-**Current version: 0.9 — testing / pre-release** (July 2026).
+**Current version: 1.0** (July 2026).
 
-This is a **pre-release build meant for testing**: the core runs the game
-end-to-end and is being validated before a final release. Expect rough edges
-and please report anything you find.
+The core runs the game end-to-end with video, audio and inputs on real MiSTer
+hardware, across all supported ROM sets.
 
-**Recent work:**
+**Highlights:**
 - Score display glitch (score shown as ×100, two extra trailing digits):
-  root-caused to a **timing** issue — a setup violation on the V30 ALU
-  datapath that had been masked by an incorrect SDC multicycle. Addressed in
-  this build (the ALU is given a real two-cycle window and the constraint is
-  corrected); under testing to confirm it is gone. The value stored in RAM was
-  always correct.
-- Savestate: the sub work RAM is saved via a dedicated dual-port (fresh-build
-  safe); background layer position right after a state load still being polished.
+  root-caused to a **timing** issue — a setup violation on the V30 ALU datapath
+  masked by an incorrect SDC multicycle — and **fixed** (the ALU now gets a real
+  two-cycle window and the constraint is corrected), validated over extended play
+  testing. The value stored in RAM was always correct.
+- **Player 1P / 2P** selector added — a solo player can play as player 2 with a
+  single pad, chosen from the OSD.
+- Both NEC V30 CPUs run at the original **10 MHz** (fixed).
+- Savestate: the sub work RAM save is in place (dedicated dual-port, fresh-build
+  safe), but the **OSD save/restore entries are currently disabled** — the
+  sound-chip and Z80 state are not captured yet, so a restore can play back with
+  wrong audio. They will be re-enabled once the audio state capture is fixed.
 - Audio and accuracy polish.
 
 **Features**
@@ -58,9 +55,11 @@ and please report anything you find.
 - VBlank-synchronized pause (frame-aligned, no race conditions)
 - **CRT H-Size / H-Position** and **Analog VGA H-Shift / V-Shift** OSD options
   for fine alignment on CRTs
+- **Player 1P / 2P** selector — play solo as player 2 with a single pad
 - MiSTer OSD with video and DIP options
 - Pause overlay with logo + supporters scroll
-- Savestate (save/restore) infrastructure
+- Savestate infrastructure present (OSD save/restore entries currently disabled —
+  see Status)
 
 **ROM sets supported**
 - Raiden (`raiden`, World set 1) — parent
@@ -68,6 +67,28 @@ and please report anything you find.
 - Raiden (USA, Fabtek)
 - Raiden (Taiwan)
 - Raiden (Korea)
+
+## Screenshots
+
+**Vertical (TATE)**
+
+| | |
+|---|---|
+| ![Logo](docs/RD_Logo_Tate.png) | ![Gameplay](docs/RD_Gameplay_Tate.png) |
+| Logo | Gameplay |
+| ![Gameplay](docs/RD_Gameplay_Tate_2.png) | |
+| Gameplay | |
+
+**Landscape**
+
+| | |
+|---|---|
+| ![Two-player co-op](docs/RD_2P_Yoko.png) | ![Fade](docs/RD_Fade_Yoko.png) |
+| Two-player co-op | Fade |
+| ![Gameplay](docs/RD_Gameplay_Yoko.png) | ![Gameplay](docs/RD_Gameplay_Yoko_2.png) |
+| Gameplay | Gameplay |
+| ![Gameplay](docs/RD_Gameplay_Yoko_3.png) | |
+| Gameplay | |
 
 ## Hardware emulated
 
@@ -102,17 +123,21 @@ Output bitstream is generated in `output_files/Raiden.rbf`.
 
 ## Running on MiSTer
 
-This repository ships sources only — there is no prebuilt bitstream or MRA.
-To run the core you build it yourself and provide the MRA and ROMs:
+The [releases/](releases/) folder contains the MRA files and a prebuilt RBF:
 
-1. Build `Raiden.rbf` from source (see *Building from source* above).
-2. Copy the `.rbf` to `_Arcade/cores/` on the MiSTer SD card.
-3. Create or obtain an `.mra` for your ROM set and copy it to `_Arcade/`.
-4. Provide your legally-owned ROM files where the MRA expects them
+- `Raiden (World).mra` — parent MRA
+- `releases/_alternatives/` — MRAs for the other regions (Japan, US, Taiwan, Korea)
+- `Raiden_YYYYMMDD.rbf` — prebuilt bitstream
+
+Steps:
+
+1. Copy the `.rbf` to `_Arcade/cores/` on the MiSTer SD card (rename to
+   `Raiden.rbf` or keep the dated name and update the MRA accordingly).
+2. Copy the `.mra` file(s) to `_Arcade/` on the MiSTer SD card.
+3. Provide your legally-owned ROM files where the MRA expects them
    (usually in `games/mame/`).
 
-**Neither the bitstream, the MRA, nor the ROMs are included in this
-repository.** You must build/provide them yourself.
+**ROMs are NOT included in this repository.** You must provide them yourself.
 
 ## Repository layout
 
@@ -129,6 +154,8 @@ Arcade-Raiden_MiSTer/
 │   └── sdram.sv     SDRAM controller (Sorgelig)
 ├── sys/             MiSTer framework (Sorgelig / MiSTer-devel)
 ├── logo/            Pause overlay assets (font, logo, supporter list)
+├── docs/            In-game screenshots
+├── releases/        MRA files + prebuilt RBF
 ├── Raiden.qpf       Quartus project
 ├── Raiden.qsf       Quartus assignments
 ├── Raiden.sv        Top-level core wrapper

@@ -208,10 +208,11 @@ wire signed [9:0] osd_bg_yoff  = osd_l0_yoff;
 localparam CONF_STR = {
 	"Raiden;SS3E000000:200000;",
 	"-;",
-	"O[106:105],Savestate Slot,1,2,3,4;",
-	"R[107],Save state (Alt-F1);",
-	"R[108],Restore state (F1);",
-	"-;",
+	// [PUBLIC] Savestate nascosto dall'OSD finché non fixiamo l'audio SS — riattivare togliendo i commenti:
+	//"O[106:105],Savestate Slot,1,2,3,4;",
+	//"R[107],Save state (Alt-F1);",
+	//"R[108],Restore state (F1);",
+	//"-;",
 	"P1,Video;",
 	"P1O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"P1O[7:5],Scale,Normal,V-Integer,HV-Integer,Narrower HV-Integer;",
@@ -224,6 +225,7 @@ localparam CONF_STR = {
 	"P1O[61:56],Analog VGA V-Shift,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
 	"-;",
 	"O[18],Clean Pause,Off,On;",
+	"O[30],Player,1P,2P;",
 	"-;",
 	"DIP;",
 	"-;",
@@ -234,10 +236,10 @@ localparam CONF_STR = {
 	"T[0],Reset;",
 	"R[0],Reset and close OSD;",
 	"-;",
-	// J1: bit 4=Fire(A), 5=Bomb(B), 6,7,8,9=unused, 10=Start1, 11=Coin1, 12=Pause
-	// 13=Start2, 14=Coin2 (MiSTer arcade convention fissa)
-	"J1,Fire,Bomb,-,-,-,-,Start,Coin,Pause,Start 2P,Coin 2P;",
-	"jn,A,B,,,,,Start,R,L,Select,;",
+	// J1: bit 4=Fire(A), 5=Bomb(B), 6,7,8,9=unused, 10=Start, 11=Coin, 12=Pause.
+	// Start 2P/Coin 2P rimossi: per giocare P2 con 1 pad usa OSD "Controls: Swap 1P/2P".
+	"J1,Fire,Bomb,-,-,-,-,Start,Coin,Pause;",
+	"jn,A,B,,,,,Start,R,L;",
 	"V,v",`BUILD_DATE
 };
 
@@ -332,8 +334,12 @@ raiden_decrypt u_decrypt (
 //   bit 8-15 = P2 (stesso layout)
 // MiSTer joy bits: 0=R, 1=L, 2=D, 3=U, 4=A=Fire, 5=B=Bomb, 10=Start
 // Active LOW.
-wire [7:0] p1_input = {~joy0[10], 1'b1, ~joy0[5], ~joy0[4], ~joy0[0], ~joy0[1], ~joy0[2], ~joy0[3]};
-wire [7:0] p2_input = {~joy1[10], 1'b1, ~joy1[5], ~joy1[4], ~joy1[0], ~joy1[1], ~joy1[2], ~joy1[3]};
+// Player 1P/2P (OSD O[30]): con 1 solo pad + "2P", il pad guida la nave P2.
+wire        swap_pl = status[30];
+wire [15:0] jp1 = swap_pl ? joy1 : joy0;
+wire [15:0] jp2 = swap_pl ? joy0 : joy1;
+wire [7:0] p1_input = {~jp1[10], 1'b1, ~jp1[5], ~jp1[4], ~jp1[0], ~jp1[1], ~jp1[2], ~jp1[3]};
+wire [7:0] p2_input = {~jp2[10], 1'b1, ~jp2[5], ~jp2[4], ~jp2[0], ~jp2[1], ~jp2[2], ~jp2[3]};
 wire [15:0] p1_p2_input = {p2_input, p1_input};
 
 // Raiden NON ha system_input separato. P1_P2 inglobano già Start (bit 7=START1,
@@ -344,7 +350,7 @@ wire [15:0] system_input16 = 16'hFFFF;
 
 // Seibu coin input (ACTIVE_HIGH per SEIBU_COIN_INPUTS macro): bit0=COIN1, bit1=COIN2.
 // Letto dal Z80 a 0x4013 → coin_r → soundlatch sub2main → main 68k legge 0xA0004.
-wire [7:0] coin_input = {6'd0, joy1[11], joy0[11]};
+wire [7:0] coin_input = {6'd0, jp2[11], jp1[11]};
 
 // DIP switches — loaded from MRA via ioctl (index 254)
 // Active-LOW: default "FF,FF" = all OFF = all 1s
@@ -699,19 +705,32 @@ wire  [2:0] main_clk_sel_iso, sub_clk_sel_iso;
 raiden_osd_iso u_osd_iso (
 	.clk              (clk_sys),
 	.pause_in         (paused_safe),
-	.main_clk_sel_in  (status[22:20]),
-	.sub_clk_sel_in   (status[15:13]),
+	.main_clk_sel_in  (3'd0),   // CPU FISSA 10 MHz — scollegata dall'OSD (no overclock)
+	.sub_clk_sel_in   (3'd0),   // CPU FISSA 10 MHz — scollegata dall'OSD (no overclock)
 	.pause_out        (pause_iso),
 	.main_clk_sel_out (main_clk_sel_iso),
 	.sub_clk_sel_out  (sub_clk_sel_iso)
 );
 
+// ── Savestate: park delle CPU a confine d'istruzione ──────────────────────
+// Bug savestate: la cattura è frame-aligned (vblank), non allineata al confine
+// istruzione del V30. Se una CPU è a metà istruzione al save, reg_ip punta a
+// metà istruzione e la FSM microcode (non salvata) è persa → al restore la CPU
+// misdecoda → freeze (intermittente). Fix: quando arriva la pausa, la CPU
+// continua a girare finché non raggiunge CPUSTAGE_IDLE (cpu_idle=1), POI si
+// congela (park). La cattura SS parte solo quando ENTRAMBE sono a confine.
+wire main_cpu_idle, sub_cpu_idle;
+wire main_cpu_pause = pause_iso & main_cpu_idle;   // gira finché non è idle, poi park
+wire sub_cpu_pause  = pause_iso & sub_cpu_idle;
+wire cpus_ss_ready  = main_cpu_idle & sub_cpu_idle; // entrambe a confine = cattura sicura
+
 // ── Main V30 (raiden_state::main_map) ──
 Raiden_main_top #(.SS_IDX_SPR(7), .SS_IDX_CPU(8)) u_main (
 	.clk              (clk_sys),
 	.reset            (reset),
-	.pause            (pause_iso),
-	.clk_sel          (main_clk_sel_iso),      // OSD Main CPU speed (isolato)
+	.pause            (main_cpu_pause),
+	.cpu_idle         (main_cpu_idle),
+	.clk_sel          (main_clk_sel_iso),      // = 0 → 10 MHz fisso (no overclock OSD)
 	.p1_input         (p1_input),
 	.p2_input         (p2_input),
 	.dsw_input        (dip_sw),
@@ -755,8 +774,9 @@ Raiden_main_top #(.SS_IDX_SPR(7), .SS_IDX_CPU(8)) u_main (
 Raiden_sub_top #(.SS_IDX_BG(4), .SS_IDX_FG(5), .SS_IDX_PAL(6), .SS_IDX_CPU(9), .SS_IDX_SUBRAM(11)) u_sub (
 	.clk              (clk_sys),
 	.reset            (reset),
-	.pause            (pause_iso),
-	.clk_sel          (sub_clk_sel_iso),       // OSD Sub CPU speed (isolato)
+	.pause            (sub_cpu_pause),
+	.cpu_idle         (sub_cpu_idle),
+	.clk_sel          (sub_clk_sel_iso),       // = 0 → 10 MHz fisso (no overclock OSD)
 	.sub_rom_rdata    (game_sub_data),
 	.sub_rom_ready    (game_sub_ready),
 	.sub_rom_addr     (game_sub_addr),
@@ -1025,7 +1045,7 @@ raiden_ss_manager u_ss_mgr (
 	.reset         (reset),
 	.ss_save       (ss_save),
 	.ss_load       (ss_load),
-	.paused_safe   (paused_safe),
+	.paused_safe   (paused_safe & cpus_ss_ready),   // cattura/load SOLO con entrambe le V30 a confine istruzione
 	.ss_busy       (ss_busy),
 	.ss_pause      (ss_mgr_pause),
 	.write_start   (ss_mgr_wr),

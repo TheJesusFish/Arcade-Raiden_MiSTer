@@ -15,6 +15,7 @@ module Raiden_main_top #(parameter SS_IDX_SPR = -1, parameter SS_IDX_CPU = -1) (
 	input  wire        clk,
 	input  wire        reset,
 	input  wire        pause,
+	output wire        cpu_idle,        // 1 = V30 a confine istruzione (savestate boundary)
 	// OSD CPU speed select (legacy port, ignorato — sempre 10 MHz)
 	input  wire  [2:0] clk_sel,
 	// Inputs HW
@@ -180,7 +181,7 @@ cpu_v30_bridge #(.SS_IDX(SS_IDX_CPU)) u_cpu (
 	.bus_din       (cpu_din),
 	.irq_req       (irq_pending),
 	.irq_vector    (10'h0C8),
-	.cpu_idle      (),
+	.cpu_idle      (cpu_idle),
 	.cpu_halt      (),
 	.cpu_irqrequest(cpu_irq_active),
 	.cpu_prefix    (),
