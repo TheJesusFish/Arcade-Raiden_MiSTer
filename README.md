@@ -15,7 +15,7 @@ references and hardware observation.
 
 **Raiden** is a vertically scrolling shoot-'em-up: you fly the Raiden
 Supersonic Attack Fighter against an alien invasion, alternating between a
-spread vulcan cannon and a homing laser while dodging dense enemy fire. Its
+spread vulcan cannon and laser while dodging dense enemy fire. Its
 solid feel, the trademark bending "Toothpaste" laser and the two-player
 co-op made it a coin-op landmark and the start of a long series. The board
 runs the game on twin NEC V30 CPUs — a main CPU for game logic and a sub CPU
